@@ -6,6 +6,8 @@ const {
   ButtonStyle, 
   EmbedBuilder 
 } = require('discord.js');
+const fs = require('fs');
+const licenses = JSON.parse(fs.readFileSync('./licenses.json'));
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
@@ -24,6 +26,15 @@ client.once("ready", () => {
 });
 
 client.on("interactionCreate", async interaction => {
+  if (!interaction.guild) return;
+
+if (!licenses.servers.includes(interaction.guild.id)) {
+    return interaction.reply({
+        content: "❌ Este servidor não possui licença ativa.",
+        ephemeral: true
+    });
+}
+
   if (!interaction.isButton()) return;
 
   const user = interaction.user;
@@ -93,4 +104,5 @@ client.on("messageCreate", async message => {
 });
 
 client.login(TOKEN);
+
 
