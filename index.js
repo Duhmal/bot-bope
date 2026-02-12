@@ -12,7 +12,7 @@ const client = new Client({
 });
 
 // ⚠️ COLOQUE SEU TOKEN AQUI
-const TOKEN = "MTQ3MTM1OTU0NDgyMjA3MTQ0OA.GdVItd.kveu5MuMICBoIO3TeOV53RRJ4PFASpf_Dn4sw4";
+const TOKEN = process.env.TOKEN;
 
 // ⚠️ COLOQUE O ID DO CANAL DE LOG AQUI
 const LOG_CHANNEL_ID = "1471349597707436073";
@@ -93,3 +93,4 @@ client.on("messageCreate", async message => {
 });
 
 client.login(TOKEN);
+
