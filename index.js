@@ -1,129 +1,75 @@
-const OWNER_ID = "998373201199501472";
+// Linha 1: carregar variáveis do .env
+require("dotenv").config();
+
 const { 
   Client, 
   GatewayIntentBits, 
+  EmbedBuilder, 
   ActionRowBuilder, 
   ButtonBuilder, 
-  ButtonStyle, 
-  EmbedBuilder 
-} = require('discord.js');
-const fs = require('fs');
-const licenses = JSON.parse(fs.readFileSync('./licenses.json'));
+  ButtonStyle,
+  REST,
+  Routes,
+  SlashCommandBuilder,
+  PermissionFlagsBits
+} = require("discord.js");
 
-const client = new Client({
-  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
-});
+const express = require("express");
 
-// ⚠️ COLOQUE SEU TOKEN AQUI
-const TOKEN = process.env.TOKEN;
+// Criar cliente Discord
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMembers] });
 
-// ⚠️ COLOQUE O ID DO CANAL DE LOG AQUI
-const LOG_CHANNEL_ID = "1471349597707436073";
-
-let pontos = new Map();
-
-client.once("ready", () => {
-  console.log(`✅ Bot online como ${client.user.tag}`);
-});
-
-client.on("interactionCreate", async interaction => {
-  if (!interaction.guild) return;
-
-if (!licenses.servers.includes(interaction.guild.id)) {
-    return interaction.reply({
-        content: "❌ Este servidor não possui licença ativa.",
-        ephemeral: true
-    });
-}
-
-  if (!interaction.isButton()) return;
-  
-  // PAINEL ADMIN
-if (interaction.user.id === OWNER_ID) {
-
-    if (interaction.commandName === "liberar") {
-        const serverId = interaction.options.getString("id");
-
-        if (!licenses.servers.includes(serverId)) {
-            licenses.servers.push(serverId);
-            fs.writeFileSync('./licenses.json', JSON.stringify(licenses, null, 2));
-        }
-
-        return interaction.reply(`✅ Servidor ${serverId} liberado.`);
-    }
-
-    if (interaction.commandName === "remover") {
-        const serverId = interaction.options.getString("id");
-
-        licenses.servers = licenses.servers.filter(id => id !== serverId);
-        fs.writeFileSync('./licenses.json', JSON.stringify(licenses, null, 2));
-
-        return interaction.reply(`❌ Servidor ${serverId} removido.`);
-    }
-
-    if (interaction.commandName === "listar") {
-        return interaction.reply(`📋 Servidores liberados:\n${licenses.servers.join("\n")}`);
-    }
-
-}
-
-
-  const user = interaction.user;
-  const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
-
-  if (interaction.customId === "entrar_servico") {
-    const horario = new Date().toLocaleString("pt-BR");
-    pontos.set(user.id, horario);
-
-    await interaction.reply({
-      content: `🟢 ${user} entrou em serviço às **${horario}**`,
-      ephemeral: true
-    });
-
-    if (logChannel) {
-      logChannel.send(`🟢 **ENTRADA**\n👤 ${user.tag}\n⏰ ${horario}`);
-    }
-  }
-
-  if (interaction.customId === "sair_servico") {
-    const horarioSaida = new Date().toLocaleString("pt-BR");
-    const horarioEntrada = pontos.get(user.id);
-
-    if (!horarioEntrada) {
-      return interaction.reply({
-        content: "❌ Você não registrou entrada!",
-        ephemeral: true
-      });
-    }
-
-    pontos.delete(user.id);
-
-    await interaction.reply({
-      content: `🔴 ${user} saiu de serviço às **${horarioSaida}**`,
-      ephemeral: true
-    });
-
-    if (logChannel) {
-      logChannel.send(
-        `🔴 **SAÍDA**\n👤 ${user.tag}\n⏰ Entrada: ${horarioEntrada}\n⏰ Saída: ${horarioSaida}`
-      );
-    }
-  }
-});
-
-client.on("messageCreate", async message => {
-  if (message.content === "!painel") {
-    const express = require("express");
+// Configurar servidor web Express
 const app = express();
+app.get("/", (req, res) => res.send("Bot online!"));
+app.listen(process.env.PORT || 3000, () => console.log("Servidor web iniciado na porta " + (process.env.PORT || 3000)));
 
-app.get("/", (req, res) => {
-  res.send("Bot online!");
-});
+// Registrar comandos slash
+const commands = [
+  new SlashCommandBuilder()
+    .setName("lista")
+    .setDescription("Mostra todos os membros do servidor"),
 
-app.listen(process.env.PORT, () => {
-  console.log("Servidor web iniciado");
-});
+  new SlashCommandBuilder()
+    .setName("retirar")
+    .setDescription("Remove um membro do servidor")
+    .addUserOption(option => 
+      option.setName("usuario")
+        .setDescription("Escolha o usuário a remover")
+        .setRequired(true)
+    ),
 
+  new SlashCommandBuilder()
+    .setName("liberar")
+    .setDescription("Libera um usuário do serviço")
+    .addUserOption(option => 
+      option.setName("usuario")
+        .setDescription("Escolha o usuário a liberar")
+        .setRequired(true)
+    )
+].map(cmd => cmd.toJSON());
+
+const rest = new REST({ version: "10" }).setToken(process.env.TOKEN);
+
+(async () => {
+  try {
+    console.log("Registrando comandos...");
+    await rest.put(
+      Routes.applicationGuildCommands(process.env.CLIENT_ID, process.env.GUILD_ID),
+      { body: commands }
+    );
+    console.log("Comandos registrados!");
+  } catch (error) {
+    console.error(error);
+  }
+})();
+
+// Lista de usuários em serviço (simples, em memória)
+let usuariosEmServico = [];
+
+// Evento do Discord para painel de botões
+client.on("messageCreate", async (message) => {
+  if (message.content === "!painel") {
     const embed = new EmbedBuilder()
       .setTitle("🛡️ BATE PONTO - BOPE")
       .setDescription("Clique no botão abaixo para registrar seu serviço.")
@@ -144,7 +90,71 @@ app.listen(process.env.PORT, () => {
   }
 });
 
-client.login(TOKEN);
+// Listener para interações (botões e comandos)
+client.on("interactionCreate", async (interaction) => {
+
+  // ✅ Slash command
+  if (interaction.isChatInputCommand()) {
+
+    // /lista
+    if (interaction.commandName === "lista") {
+      const list = usuariosEmServico.length > 0 ? usuariosEmServico.map(u => u.tag).join("\n") : "Nenhum usuário em serviço";
+      await interaction.reply({ content: Usuários em serviço:\n${list}, ephemeral: true });
+    }
+
+    // /retirar
+    if (interaction.commandName === "retirar") {
+      const member = interaction.options.getMember("usuario");
+
+      if (!member) return interaction.reply({ content: "Usuário não encontrado!", ephemeral: true });
+      if (!interaction.member.permissions.has(PermissionFlagsBits.KickMembers)) {
+        return interaction.reply({ content: "Você não tem permissão para isso!", ephemeral: true });
+      }
+      if (!member.kickable) {
+        return interaction.reply({ content: "Não posso remover este usuário!", ephemeral: true });
+      }
+
+      await member.kick("Removido pelo bot");
+      await interaction.reply({ content: ${member.user.tag} foi removido do servidor!, ephemeral: true });
+      
+      // Também remover da lista de serviço, caso esteja
+      usuariosEmServico = usuariosEmServico.filter(u => u.id !== member.id);
+    }
+
+    // /liberar
+    if (interaction.commandName === "liberar") {
+      const member = interaction.options.getUser("usuario");
+      if (!member) return interaction.reply({ content: "Usuário não encontrado!", ephemeral: true });
+
+      const index = usuariosEmServico.findIndex(u => u.id === member.id);
+      if (index !== -1) {
+        usuariosEmServico.splice(index, 1);
+        await interaction.reply({ content: ${member.tag} foi liberado do serviço!, ephemeral: true });
+      } else {
+        await interaction.reply({ content: ${member.tag} não está em serviço., ephemeral: true });
+      }
+    }
+
+  }
+
+  // ✅ Botões do painel
+  if (interaction.isButton()) {
+    if (interaction.customId === "entrar_servico") {
+      if (!usuariosEmServico.find(u => u.id === interaction.user.id)) {
+        usuariosEmServico.push(interaction.user);
+      }
+      await interaction.reply({ content: "🟢 Você entrou em serviço!", ephemeral: true });
+    }
+    if (interaction.customId === "sair_servico") {
+      usuariosEmServico = usuariosEmServico.filter(u => u.id !== interaction.user.id);
+      await interaction.reply({ content: "🔴 Você saiu de serviço!", ephemeral: true });
+    }
+  }
+});
+
+// Logar no bot
+client.login(process.env.TOKEN);
+
 
 
 
