@@ -120,7 +120,7 @@ app.get("/", (req, res) => {
   res.send("Bot online!");
 });
 
-app.listen(process.env.PORT || 3000, () => {
+app.listen(process.env.PORT, () => {
   console.log("Servidor web iniciado");
 });
 
@@ -145,6 +145,7 @@ app.listen(process.env.PORT || 3000, () => {
 });
 
 client.login(TOKEN);
+
 
 
 
