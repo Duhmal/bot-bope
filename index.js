@@ -113,6 +113,16 @@ if (interaction.user.id === OWNER_ID) {
 
 client.on("messageCreate", async message => {
   if (message.content === "!painel") {
+    const express = require("express");
+const app = express();
+
+app.get("/", (req, res) => {
+  res.send("Bot online!");
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log("Servidor web iniciado");
+});
 
     const embed = new EmbedBuilder()
       .setTitle("🛡️ BATE PONTO - BOPE")
@@ -135,6 +145,7 @@ client.on("messageCreate", async message => {
 });
 
 client.login(TOKEN);
+
 
 
 
