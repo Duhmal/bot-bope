@@ -1,3 +1,4 @@
+const OWNER_ID = "998373201199501472";
 const { 
   Client, 
   GatewayIntentBits, 
@@ -36,6 +37,36 @@ if (!licenses.servers.includes(interaction.guild.id)) {
 }
 
   if (!interaction.isButton()) return;
+  
+  // PAINEL ADMIN
+if (interaction.user.id === OWNER_ID) {
+
+    if (interaction.commandName === "liberar") {
+        const serverId = interaction.options.getString("id");
+
+        if (!licenses.servers.includes(serverId)) {
+            licenses.servers.push(serverId);
+            fs.writeFileSync('./licenses.json', JSON.stringify(licenses, null, 2));
+        }
+
+        return interaction.reply(`✅ Servidor ${serverId} liberado.`);
+    }
+
+    if (interaction.commandName === "remover") {
+        const serverId = interaction.options.getString("id");
+
+        licenses.servers = licenses.servers.filter(id => id !== serverId);
+        fs.writeFileSync('./licenses.json', JSON.stringify(licenses, null, 2));
+
+        return interaction.reply(`❌ Servidor ${serverId} removido.`);
+    }
+
+    if (interaction.commandName === "listar") {
+        return interaction.reply(`📋 Servidores liberados:\n${licenses.servers.join("\n")}`);
+    }
+
+}
+
 
   const user = interaction.user;
   const logChannel = interaction.guild.channels.cache.get(LOG_CHANNEL_ID);
@@ -104,5 +135,6 @@ client.on("messageCreate", async message => {
 });
 
 client.login(TOKEN);
+
 
 
